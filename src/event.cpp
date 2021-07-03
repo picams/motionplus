@@ -738,6 +738,7 @@ static void event_movie_closefile(struct ctx_cam *cam, motion_event evnt
     if (cam->movie_norm) {
         movie_close(cam->movie_norm);
         if (cam->movie_norm != NULL) {
+            snprintf(cam->newfilename, PATH_MAX, "%s", cam->movie_norm->filename);
             free(cam->movie_norm);
         }
         cam->movie_norm = NULL;
@@ -747,6 +748,7 @@ static void event_movie_closefile(struct ctx_cam *cam, motion_event evnt
     if (cam->movie_motion) {
         movie_close(cam->movie_motion);
         if (cam->movie_motion != NULL) {
+            snprintf(cam->motionfilename, PATH_MAX, "%s", cam->movie_motion->filename);
             free(cam->movie_motion);
         }
         cam->movie_motion = NULL;
