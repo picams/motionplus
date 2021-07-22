@@ -64,16 +64,16 @@
 
         /* Motion detection configuration parameters */
         bool            emulate_motion;
-        int             primary_method;
         int             threshold;
         int             threshold_maximum;
         int             threshold_sdevx;
         int             threshold_sdevy;
         int             threshold_sdevxy;
         int             threshold_ratio;
+        int             threshold_ratio_change;
         bool            threshold_tune;
         int             secondary_interval;
-        int             secondary_method;
+        std::string     secondary_method;
         std::string     secondary_params;
         int             noise_level;
         bool            noise_tune;
@@ -123,14 +123,16 @@
         std::string     movie_codec;
         bool            movie_passthrough;
         std::string     movie_filename;
+        std::string     movie_retain;
         bool            movie_extpipe_use;
         std::string     movie_extpipe;
+
 
         /* Timelapse movie configuration parameters */
         int             timelapse_interval;
         std::string     timelapse_mode;
         int             timelapse_fps;
-        std::string     timelapse_codec;
+        std::string     timelapse_container;
         std::string     timelapse_filename;
 
         /* Loopback device configuration parameters */
@@ -142,8 +144,8 @@
         bool            webcontrol_ipv6;
         bool            webcontrol_localhost;
         int             webcontrol_parms;
-        int             webcontrol_interface;
-        int             webcontrol_auth_method;
+        std::string     webcontrol_interface;
+        std::string     webcontrol_auth_method;
         std::string     webcontrol_authentication;
         bool            webcontrol_tls;
         std::string     webcontrol_cert;
@@ -154,7 +156,7 @@
         /* Live stream configuration parameters */
         int             stream_preview_scale;
         bool            stream_preview_newline;
-        int             stream_preview_method;
+        std::string     stream_preview_method;
         bool            stream_preview_ptz;
         int             stream_quality;
         bool            stream_grey;

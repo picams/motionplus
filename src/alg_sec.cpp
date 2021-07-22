@@ -41,7 +41,7 @@ using namespace cv;
 
 static void algsec_img_show(ctx_cam *cam, Mat &mat_src
         , std::vector<Rect> &src_pos, std::vector<double> &src_weights
-        , std::string algmethod, ctx_algsec_model &algmdl)
+        , ctx_algsec_model &algmdl)
 {
 
     std::vector<Rect> fltr_pos;
@@ -51,10 +51,6 @@ static void algsec_img_show(ctx_cam *cam, Mat &mat_src
     std::vector<uchar> buff;    //buffer for coding
     std::vector<int> param(2);
     char wstr[10];
-
-    testdir = cam->conf->target_dir;
-
-    imwrite(testdir  + "/src_" + algmethod + ".jpg", mat_src);
 
     algmdl.isdetected = false;
     for (indx0=0; indx0<src_pos.size(); indx0++) {
@@ -73,26 +69,34 @@ static void algsec_img_show(ctx_cam *cam, Mat &mat_src
         }
     }
 
-    if (algmdl.isdetected) {
-        for (indx0=0; indx0<fltr_pos.size(); indx0++) {
-            Rect r = fltr_pos[indx0];
-            r.x += cvRound(r.width*0.1);
-            r.width = cvRound(r.width*0.8);
-            r.y += cvRound(r.height*0.06);
-            r.height = cvRound(r.height*0.9);
-            rectangle(mat_src, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
-            snprintf(wstr, 10, "%.4f", fltr_weights[indx0]);
-            putText(mat_src, wstr, Point(r.x,r.y), FONT_HERSHEY_PLAIN, 1, 255, 1);
-        }
-        imwrite(testdir  + "/detect_" + algmethod + ".jpg", mat_src);
-    }
-
     /* We check the size so that we at least fill in the first image so the
      * web stream will have something to start with.  After feeding in at least
      * the first image, we rely upon the connection count to tell us whether we
      * need to expend the CPU to compress and load the secondary images */
     if ((cam->stream.secondary.cnct_count >0) ||
-        (cam->imgs.size_secondary == 0)) {
+        (cam->imgs.size_secondary == 0) ||
+        (cam->motapp->log_level >= DBG)) {
+
+        if (cam->motapp->log_level >= DBG) {
+            imwrite(cam->conf->target_dir  + "/src_" + algmdl.method + ".jpg", mat_src);
+        }
+
+        if (algmdl.isdetected) {
+            for (indx0=0; indx0<fltr_pos.size(); indx0++) {
+                Rect r = fltr_pos[indx0];
+                r.x += cvRound(r.width*0.1);
+                r.width = cvRound(r.width*0.8);
+                r.y += cvRound(r.height*0.06);
+                r.height = cvRound(r.height*0.9);
+                rectangle(mat_src, r.tl(), r.br(), cv::Scalar(0,255,0), 2);
+                snprintf(wstr, 10, "%.4f", fltr_weights[indx0]);
+                putText(mat_src, wstr, Point(r.x,r.y), FONT_HERSHEY_PLAIN, 1, 255, 1);
+            }
+            if (cam->motapp->log_level >= DBG) {
+                imwrite(cam->conf->target_dir  + "/detect_" + algmdl.method + ".jpg", mat_src);
+            }
+        }
+
         param[0] = cv::IMWRITE_JPEG_QUALITY;
         param[1] = 75;
         cv::imencode(".jpg", mat_src, buff, param);
@@ -210,13 +214,13 @@ static void algsec_detect_hog(ctx_cam *cam, ctx_algsec_model &algmdl)
             ,algmdl.threshold_model
             ,false);
 
-        algsec_img_show(cam, mat_dst, detect_pos, detect_weights, "hog",algmdl);
+        algsec_img_show(cam, mat_dst, detect_pos, detect_weights, algmdl);
 
     } catch ( cv::Exception& e ) {
         const char* err_msg = e.what();
         MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Error %s"),err_msg);
         MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Disabling secondary detection"));
-        algmdl.method = 0;
+        algmdl.method = "none";
     }
 }
 
@@ -259,13 +263,13 @@ static void algsec_detect_haar(ctx_cam *cam, ctx_algsec_model &algmdl)
             , Size(algmdl.haar_minsize,algmdl.haar_minsize)
             , Size(algmdl.haar_maxsize,algmdl.haar_maxsize), true);
 
-        algsec_img_show(cam, mat_dst, detect_pos, detect_weights, "haar", algmdl);
+        algsec_img_show(cam, mat_dst, detect_pos, detect_weights, algmdl);
 
     } catch ( cv::Exception& e ) {
         const char* err_msg = e.what();
         MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Error %s"),err_msg);
         MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Disabling secondary detection"));
-        algmdl.method = 0;
+        algmdl.method = "none";
     }
 }
 
@@ -274,13 +278,13 @@ static void algsec_load_haar(ctx_algsec_model &algmdl)
     /* If loading fails, reset the method to invalidate detection */
     try {
         if (algmdl.model_file == "") {
-            algmdl.method = 0;
+            algmdl.method = "none";
             MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("No secondary model specified."));
             return;
         }
         if (!algmdl.haar_cascade.load(algmdl.model_file)) {
             /* Loading failed, reset method*/
-            algmdl.method = 0;
+            algmdl.method = "none";
             MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Failed loading model %s")
                 ,algmdl.model_file.c_str());
         };
@@ -288,7 +292,7 @@ static void algsec_load_haar(ctx_algsec_model &algmdl)
         const char* err_msg = e.what();
         MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Error %s"),err_msg);
         MOTION_LOG(ERR, TYPE_ALL, NO_ERRNO, _("Failed loading model %s"), algmdl.model_file.c_str());
-        algmdl.method = 0;
+        algmdl.method = "none";
     }
 }
 
@@ -363,7 +367,7 @@ static void algsec_params_defaults(ctx_algsec_model &algmdl)
     util_parms_add_default(algmdl.algsec_params, "imagetype", "full");
 
     util_parms_add_default(algmdl.algsec_params, "threshold_motion", "1.1");
-    if (algmdl.method == 1) {
+    if (algmdl.method == "haar") {
         util_parms_add_default(algmdl.algsec_params, "threshold_model", "1.4");
         util_parms_add_default(algmdl.algsec_params, "scalefactor", "1.1");
     } else {
@@ -437,21 +441,16 @@ static int algsec_load_params(ctx_cam *cam)
 static int algsec_load_models(ctx_cam *cam)
 {
 
-    if (cam->algsec->models.method != 0){
-        switch (cam->algsec->models.method) {
-        case 1:     //Haar Method
-            algsec_load_haar(cam->algsec->models);
-            break;
-        case 2:     //HoG Method
-            //algsec_load_hog(cam->algsec->models);
-            break;
-        default:
-            cam->algsec->models.method = 0;
-        }
+    if (cam->algsec->models.method == "haar") {
+        algsec_load_haar(cam->algsec->models);
+    } else if (cam->algsec->models.method == "hog") {
+        //algsec_load_hog(cam->algsec->models);
+    } else {
+        cam->algsec->models.method = "none";
     }
 
-    /* If model fails to load, it sets method to zero*/
-    if (cam->algsec->models.method != 0){
+    /* If model fails to load, the method is changed to none*/
+    if (cam->algsec->models.method != "none"){
         cam->algsec_inuse = true;
         return 0;
     } else {
@@ -475,13 +474,10 @@ static void *algsec_handler(void *arg)
 
     while (!cam->algsec->closing){
         if (cam->algsec->detecting){
-            switch (cam->algsec->models.method) {
-            case 1:     //Haar Method
+            if (cam->algsec->models.method == "haar") {
                 algsec_detect_haar(cam, cam->algsec->models);
-                break;
-            case 2:     //HoG Method
+            } else if (cam->algsec->models.method == "hog") {
                 algsec_detect_hog(cam, cam->algsec->models);
-                break;
             }
             cam->algsec->detecting = false;
             /*Set the event based isdetected bool */
@@ -511,7 +507,7 @@ static void algsec_start_handler(ctx_cam *cam)
     if (retcd < 0) {
         MOTION_LOG(ALR, TYPE_NETCAM, SHOW_ERRNO
             ,_("Error starting algsec handler thread"));
-        cam->algsec->models.method = 0;
+        cam->algsec->models.method = "none";
     }
     pthread_attr_destroy(&handler_attribute);
     return;
@@ -541,7 +537,7 @@ void algsec_init(ctx_cam *cam)
 
         mythreadname_set("ml",cam->threadnr,cam->conf->camera_name.c_str());
     #else
-        (void)cam;
+        cam->algsec_inuse = false;
     #endif
 }
 
@@ -589,6 +585,14 @@ void algsec_detect(ctx_cam *cam)
 {
     /*This function runs on the camera thread */
     #ifdef HAVE_OPENCV
+
+        /* If we have already detected something for this event,
+         * we do not need to do further detections
+         */
+        if (cam->algsec->isdetected) {
+            return;
+        }
+
         if (cam->algsec->frame_cnt > 0) {
             cam->algsec->frame_cnt--;
         }
